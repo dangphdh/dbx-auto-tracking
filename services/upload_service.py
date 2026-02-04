@@ -5,6 +5,7 @@ from typing import Optional, Dict, Any, Callable
 from databricks import sql
 from io import BytesIO
 import base64
+import pandas as pd
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -84,70 +85,68 @@ class DatabricksUploader:
         progress_callback: Optional[Callable[[int, str], None]] = None
     ) -> Dict[str, Any]:
         """
-        Upload file to Unity Catalog Volume using Databricks SQL
+        Upload CSV data to Databricks table using SQL
         
         Args:
-            file_content: File content as bytes
+            file_content: File content as bytes (CSV)
             filename: Name of the file
             catalog: Unity Catalog name
             schema: Schema name
-            volume: Volume name
+            volume: Not used, placeholder
             progress_callback: Optional callback function for progress updates (percentage, message)
             
         Returns:
             Dictionary with upload result details
         """
         try:
-            volume_path = f"/Volumes/{catalog}/{schema}/{volume}/{filename}"
+            if progress_callback:
+                progress_callback(10, f"Parsing CSV data from {filename}...")
+            
+            # Parse CSV using pandas
+            df = pd.read_csv(BytesIO(file_content))
+            
+            # Create table name from filename (remove extension)
+            table_name = filename.rsplit('.', 1)[0].replace('-', '_').replace(' ', '_')
+            full_table_name = f"{catalog}.{schema}.{table_name}"
             
             if progress_callback:
-                progress_callback(10, f"Initializing upload for {filename}...")
+                progress_callback(30, f"Creating table {full_table_name}...")
             
-            # Use Databricks Python SDK to upload file
-            # Note: Databricks SQL connector doesn't directly support file upload
-            # We'll use the Files API via SQL execute
-            
-            # For Unity Catalog volumes, we use PUT file command
             conn = self.get_connection()
-            
-            if progress_callback:
-                progress_callback(30, "Preparing file upload...")
-            
-            # Convert file content to base64 for safer transmission
-            file_content_b64 = base64.b64encode(file_content).decode('utf-8')
-            
-            if progress_callback:
-                progress_callback(50, f"Uploading to {volume_path}...")
-            
-            # Use dbutils (via SQL execution) to write file
-            # This approach works within Databricks notebooks/SQL
-            sql_command = f"""
-            CREATE OR REPLACE TEMPORARY VIEW temp_file_content AS
-            SELECT '{file_content_b64}' as content
-            """
-            
-            # Alternative: Use PUT command if supported
-            # For now, we'll document the proper approach
-            
-            logger.info(f"File upload initiated to {volume_path}")
-            
-            if progress_callback:
-                progress_callback(75, "Finalizing upload...")
-            
-            # In production, use Databricks SDK's files API
-            # from databricks.sdk import WorkspaceClient
-            # w = WorkspaceClient(host=..., token=...)
-            # w.files.upload(path=volume_path, content=file_content, overwrite=True)
+            with conn.cursor() as cursor:
+                # Drop table if exists
+                cursor.execute(f"DROP TABLE IF EXISTS {full_table_name}")
+                
+                # Create table with columns from CSV
+                columns = df.columns.tolist()
+                column_defs = []
+                for col in columns:
+                    # Assume all string for simplicity; in production, infer types
+                    column_defs.append(f"`{col}` STRING")
+                create_sql = f"CREATE TABLE {full_table_name} ({', '.join(column_defs)})"
+                cursor.execute(create_sql)
+                
+                if progress_callback:
+                    progress_callback(50, "Inserting data...")
+                
+                # Insert data
+                for index, row in df.iterrows():
+                    values = [str(val) if pd.notna(val) else 'NULL' for val in row]
+                    insert_sql = f"INSERT INTO {full_table_name} VALUES ({', '.join([f\"'{v}'\" if v != 'NULL' else 'NULL' for v in values])})"
+                    cursor.execute(insert_sql)
+                
+                # Commit
+                conn.commit()
             
             if progress_callback:
                 progress_callback(100, "Upload completed!")
             
             return {
                 "success": True,
-                "path": volume_path,
+                "table": full_table_name,
                 "filename": filename,
-                "size_bytes": len(file_content),
-                "message": f"File uploaded successfully to {volume_path}"
+                "rows_inserted": len(df),
+                "message": f"Data uploaded successfully to table {full_table_name}"
             }
             
         except Exception as e:
@@ -159,7 +158,7 @@ class DatabricksUploader:
             return {
                 "success": False,
                 "error": str(e),
-                "message": "File upload failed"
+                "message": "Data upload failed"
             }
     
     def verify_file_in_volume(
