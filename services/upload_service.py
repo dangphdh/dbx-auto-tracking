@@ -6,6 +6,8 @@ from databricks import sql
 from io import BytesIO
 import base64
 import pandas as pd
+import tempfile
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -88,68 +90,49 @@ class DatabricksUploader:
         progress_callback: Optional[Callable[[int, str], None]] = None
     ) -> Dict[str, Any]:
         """
-        Upload CSV data to Databricks table using SQL
+        Upload file to Unity Catalog Volume using SQL PUT command
         
         Args:
-            file_content: File content as bytes (CSV)
+            file_content: File content as bytes
             filename: Name of the file
             catalog: Unity Catalog name
             schema: Schema name
-            volume: Not used, placeholder
+            volume: Volume name
             progress_callback: Optional callback function for progress updates (percentage, message)
             
         Returns:
             Dictionary with upload result details
         """
+        temp_file_path = None
         try:
-            if progress_callback:
-                progress_callback(10, f"Parsing CSV data from {filename}...")
-            
-            # Parse CSV using pandas
-            df = pd.read_csv(BytesIO(file_content))
-            
-            # Create table name from filename (remove extension)
-            table_name = filename.rsplit('.', 1)[0].replace('-', '_').replace(' ', '_')
-            full_table_name = f"{catalog}.{schema}.{table_name}"
+            volume_path = f"/Volumes/{catalog}/{schema}/{volume}/{filename}"
             
             if progress_callback:
-                progress_callback(30, f"Creating table {full_table_name}...")
+                progress_callback(10, f"Preparing file for upload...")
+            
+            # Create a temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{filename}") as temp_file:
+                temp_file.write(file_content)
+                temp_file_path = temp_file.name
+            
+            if progress_callback:
+                progress_callback(30, f"Uploading {filename} to {volume_path}...")
             
             conn = self.get_connection()
             with conn.cursor() as cursor:
-                # Drop table if exists
-                cursor.execute(f"DROP TABLE IF EXISTS {full_table_name}")
-                
-                # Create table with columns from CSV
-                columns = df.columns.tolist()
-                column_defs = []
-                for col in columns:
-                    # Assume all string for simplicity; in production, infer types
-                    column_defs.append(f"`{col}` STRING")
-                create_sql = f"CREATE TABLE {full_table_name} ({', '.join(column_defs)})"
-                cursor.execute(create_sql)
-                
-                if progress_callback:
-                    progress_callback(50, "Inserting data...")
-                
-                # Insert data
-                for index, row in df.iterrows():
-                    values = [str(val) if pd.notna(val) else 'NULL' for val in row]
-                    insert_sql = f"INSERT INTO {full_table_name} VALUES ({', '.join([f\"'{v}'\" if v != 'NULL' else 'NULL' for v in values])})"
-                    cursor.execute(insert_sql)
-                
-                # Commit
-                conn.commit()
+                # Use PUT command to upload file
+                put_sql = f"PUT '{temp_file_path}' INTO '{volume_path}' OVERWRITE"
+                cursor.execute(put_sql)
             
             if progress_callback:
                 progress_callback(100, "Upload completed!")
             
             return {
                 "success": True,
-                "table": full_table_name,
+                "path": volume_path,
                 "filename": filename,
-                "rows_inserted": len(df),
-                "message": f"Data uploaded successfully to table {full_table_name}"
+                "size_bytes": len(file_content),
+                "message": f"File uploaded successfully to {volume_path}"
             }
             
         except Exception as e:
@@ -161,9 +144,17 @@ class DatabricksUploader:
             return {
                 "success": False,
                 "error": str(e),
-                "message": "Data upload failed"
+                "message": "File upload failed"
             }
-    
+        finally:
+            # Clean up temp file
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.unlink(temp_file_path)
+                except Exception as e:
+                    logger.warning(f"Failed to delete temp file {temp_file_path}: {str(e)}")
+
+        
     def verify_file_in_volume(
         self,
         catalog: str,

@@ -350,22 +350,22 @@ def display_results_section():
             st.metric("File Name", results.get('filename', 'N/A'))
         
         with col2:
-            rows = results.get('rows_inserted', 0)
-            st.metric("Rows Inserted", rows)
+            size_mb = results.get('size_bytes', 0) / (1024 * 1024)
+            st.metric("File Size", f"{size_mb:.2f} MB")
         
         with col3:
             st.metric("Upload Time", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         
         # Display file path
-        st.subheader("📍 Table Location")
-        st.code(results.get('table', 'N/A'))
+        st.subheader("📍 File Location")
+        st.code(results.get('path', 'N/A'))
         
         # Display Databricks links
         display_uploaded_data_dashboard(
             server_hostname=Config.DATABRICKS_SERVER_HOSTNAME,
-            catalog=Config.DATABRICKS_CATALOG,
-            schema=Config.DATABRICKS_SCHEMA,
-            table_name=results.get('table', '').split('.')[-1] if '.' in results.get('table', '') else 'uploaded_data',
+            catalog=results.get('path', '').split('/')[2] if '/' in results.get('path', '') else Config.DATABRICKS_CATALOG,
+            schema=results.get('path', '').split('/')[3] if '/' in results.get('path', '') else Config.DATABRICKS_SCHEMA,
+            table_name=Path(results.get('filename', '')).stem,
             access_token=st.session_state.access_token
         )
         
