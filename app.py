@@ -429,22 +429,21 @@ def main():
         
         st.divider()
         
-        # Logout button
-        if st.session_state.authenticated:
-            if st.button("🔓 Logout"):
-                st.session_state.access_token = None
-                st.session_state.authenticated = False
-                st.session_state.current_step = 'authentication'
-                st.rerun()
+        # Logout button (disabled - authentication skipped)
+        # if st.session_state.authenticated:
+        #     if st.button("🔓 Logout"):
+        #         st.session_state.access_token = None
+        #         st.session_state.authenticated = False
+        #         st.session_state.current_step = 'authentication'
+        #         st.rerun()
     
     # Main workflow
-    # Step 1: Authentication
+    # Step 1: Authentication (skipped)
     st.divider()
     
-    if not display_authentication_section():
-        st.stop()
-    
+    # Skip authentication for development/testing
     st.session_state.authenticated = True
+    st.session_state.access_token = "dummy_token"  # Replace with actual token if needed
     
     # Step 2: File Upload
     st.divider()
