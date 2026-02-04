@@ -48,10 +48,7 @@ class DatabricksUploader:
                 self.connection = sql.connect(
                     server_hostname=self.server_hostname,
                     http_path=self.http_path,
-                    access_token=self.access_token,
-                    client_id=self.client_id,
-                    client_secret=self.client_secret,
-                    auth_type="oauth"
+                    auth_type="databricks-oauth",
                 )
                 logger.info("Successfully connected to Databricks")
             except Exception as e:
