@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class DatabricksUploader:
     """Handle file uploads to Databricks Unity Catalog Volumes"""
     
-    def __init__(self, server_hostname: str, http_path: str, access_token: str):
+    def __init__(self, server_hostname: str, http_path: str, access_token: str, client_id: str, client_secret: str):
         """
         Initialize Databricks uploader
         
@@ -22,10 +22,14 @@ class DatabricksUploader:
             server_hostname: Databricks workspace hostname
             http_path: SQL warehouse HTTP path
             access_token: OAuth access token
+            client_id: OAuth client ID
+            client_secret: OAuth client secret
         """
         self.server_hostname = server_hostname
         self.http_path = http_path
         self.access_token = access_token
+        self.client_id = client_id
+        self.client_secret = client_secret
         self.connection = None
     
     def get_connection(self):
@@ -45,7 +49,9 @@ class DatabricksUploader:
                     server_hostname=self.server_hostname,
                     http_path=self.http_path,
                     access_token=self.access_token,
-                    auth_type="pat"
+                    client_id=self.client_id,
+                    client_secret=self.client_secret,
+                    auth_type="oauth"
                 )
                 logger.info("Successfully connected to Databricks")
             except Exception as e:

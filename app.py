@@ -279,7 +279,9 @@ def display_upload_section():
             uploader = DatabricksUploader(
                 server_hostname=Config.DATABRICKS_SERVER_HOSTNAME,
                 http_path=Config.DATABRICKS_HTTP_PATH,
-                access_token=st.session_state.access_token
+                access_token=st.session_state.access_token,
+                client_id=Config.DATABRICKS_CLIENT_ID,
+                client_secret=Config.DATABRICKS_CLIENT_SECRET
             )
             
             # Prepare file content
