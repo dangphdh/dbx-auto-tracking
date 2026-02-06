@@ -24,39 +24,88 @@ logger = logging.getLogger(__name__)
 
 # Streamlit page configuration
 st.set_page_config(
-    page_title="Databricks CSV Auto-Tracking",
-    page_icon="📊",
+    page_title="Techcombank | Data Tracking",
+    page_icon="🔴",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# Custom CSS for Techcombank Red/Gray theme
 st.markdown("""
     <style>
+    /* Main background */
+    .stApp {
+        background-color: #FFFFFF;
+    }
+    
+    /* Header styling */
+    header[data-testid="stHeader"] {
+        background-color: #E31D2E;
+        color: white;
+    }
+    
+    /* Red buttons */
+    div.stButton > button:first-child {
+        background-color: #E31D2E;
+        color: white;
+        border: none;
+        border-radius: 4px;
+    }
+    div.stButton > button:first-child:hover {
+        background-color: #B21724;
+        color: white;
+    }
+    
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] {
+        background-color: #F8F9FA;
+        border-right: 1px solid #E9ECEF;
+    }
+    
+    /* Custom containers */
     .main-container {
         padding: 2rem;
     }
     .upload-section {
-        background-color: #f0f2f6;
+        background-color: #F8F9FA;
+        border: 1px solid #E9ECEF;
         border-radius: 0.5rem;
         padding: 1.5rem;
         margin-bottom: 1rem;
     }
+    
+    /* Metrics and indicators */
+    [data-testid="stMetricValue"] {
+        color: #E31D2E;
+    }
+    
     .success-box {
-        background-color: #d4edda;
-        border: 1px solid #c3e6cb;
+        background-color: #D4EDDA;
+        border: 1px solid #C3E6CB;
         color: #155724;
         padding: 1rem;
         border-radius: 0.5rem;
         margin-bottom: 1rem;
     }
     .error-box {
-        background-color: #f8d7da;
-        border: 1px solid #f5c6cb;
-        color: #721c24;
+        background-color: #F8D7DA;
+        border: 1px solid #F5C6CB;
+        color: #721C24;
         padding: 1rem;
         border-radius: 0.5rem;
         margin-bottom: 1rem;
+    }
+    
+    /* Title colors */
+    h1, h2, h3 {
+        color: #333333;
+    }
+    
+    /* Style for the logo */
+    .logo-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 2rem;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -387,28 +436,48 @@ def main():
     # Initialize session state
     initialize_session_state()
     
-    # Main title
-    st.title("📊 Databricks CSV Auto-Tracking")
-    st.markdown("Upload CSV files to Databricks Unity Catalog with automatic processing")
+    # Techcombank Header and Logo
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        st.image("https://www.techcombank.com.vn/themes/tcb/assets/images/logo.png", width=200)
+    with col2:
+        st.title("CSV Auto-Tracking & Validation")
+        st.markdown("*Enterprise Data Ingestion Platform for Databricks Lakehouse*")
     
+    st.divider()
+
     # Sidebar configuration
     with st.sidebar:
-        st.header("⚙️ Configuration")
+        st.image("https://www.techcombank.com.vn/themes/tcb/assets/images/logo.png", width=150)
+        st.header("⚙️ POC Control Center")
         
-        st.subheader("Databricks Settings")
+        st.markdown("""
+        <div style="background-color: #E31D2E; color: white; padding: 10px; border-radius: 5px; text-align: center; margin-bottom: 20px;">
+            <strong>POC MODE ACTIVE</strong><br/>
+            Techcombank x Databricks
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.subheader("📍 Deployment Info")
         st.info(f"""
         **Host:** {Config.DATABRICKS_SERVER_HOSTNAME}
-        
         **Catalog:** {Config.DATABRICKS_CATALOG}
-        
         **Schema:** {Config.DATABRICKS_SCHEMA}
-        
-        **Volume:** {Config.DATABRICKS_VOLUME}
-        
-        **Max File Size:** {Config.MAX_FILE_SIZE_MB} MB
-        
-        **Required Columns:** {', '.join(Config.CSV_COLUMNS_REQUIRED)}
+        **POC Warehouse:** Ready
         """)
+
+        st.divider()
+        
+        st.subheader("📊 Monitoring")
+        # Fixed POC Dashboard Link
+        poc_url = generate_dashboard_url(Config.DATABRICKS_SERVER_HOSTNAME, Config.POC_DASHBOARD_ID)
+        
+        st.markdown(f"[🚀 Open POC Dashboard]({poc_url})")
+        
+        if st.checkbox("Show Embedded POC Dashboard", value=False):
+            st.session_state.show_poc_dashboard = True
+        else:
+            st.session_state.show_poc_dashboard = False
         
         st.divider()
         
@@ -437,36 +506,40 @@ def main():
         #         st.session_state.current_step = 'authentication'
         #         st.rerun()
     
-    # Main workflow
-    # Step 1: Authentication (skipped)
-    st.divider()
+    # Main workflow logic with Tab selection
+    tab1, tab2 = st.tabs(["🚀 Data Ingestion", "📊 POC Analytics"])
     
-    # Skip authentication for development/testing
-    st.session_state.authenticated = True
-    st.session_state.access_token = "dummy_token"  # Replace with actual token if needed
-    
-    # Step 2: File Upload
-    st.divider()
-    
-    if not display_file_upload_section():
-        st.info("👇 Please upload a CSV file to continue")
-        st.stop()
-    
-    # Step 3: Validation
-    st.divider()
-    
-    if not display_validation_section():
-        st.stop()
-    
-    # Step 4: Upload
-    st.divider()
-    
-    display_upload_section()
-    
-    # Step 5: Results
-    st.divider()
-    
-    display_results_section()
+    with tab1:
+        # Step 2: File Upload
+        if not display_file_upload_section():
+            st.info("👇 Please upload a CSV file to continue")
+            st.stop()
+        
+        # Step 3: Validation
+        st.divider()
+        if not display_validation_section():
+            st.stop()
+        
+        # Step 4: Upload
+        st.divider()
+        display_upload_section()
+        
+        # Step 5: Results
+        st.divider()
+        display_results_section()
+
+    with tab2:
+        st.header("📈 POC Performance Dashboard")
+        st.info("Tracking ingestion latency, data quality trends, and system health.")
+        
+        # Use fixed POC ID from config
+        poc_url = generate_dashboard_url(Config.DATABRICKS_SERVER_HOSTNAME, Config.POC_DASHBOARD_ID)
+        
+        display_embedded_dashboard(
+            dashboard_url=poc_url,
+            title="POC Real-time Monitoring",
+            height=1000
+        )
 
 
 if __name__ == "__main__":

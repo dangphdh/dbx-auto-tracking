@@ -30,6 +30,9 @@ class Config:
     # Streamlit
     STREAMLIT_SERVER_PORT = int(os.getenv("STREAMLIT_SERVER_PORT", "8501"))
     
+    # POC Configuration
+    POC_DASHBOARD_ID = os.getenv("POC_DASHBOARD_ID", "01ef45fd-8a02-159c-859a-654fac123456")
+    
     @classmethod
     def validate(cls):
         """Validate configuration"""
